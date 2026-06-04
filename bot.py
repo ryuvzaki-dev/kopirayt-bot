@@ -1,7 +1,7 @@
 import os
 import asyncio
 import sqlite3
-from google import genai
+import requests
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -15,7 +15,13 @@ ALLOWED_USER_ID = int(os.getenv("ALLOWED_USER_ID", "0"))
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
-gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+
+def gemini_yoz(prompt):
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+    data = {"contents": [{"parts": [{"text": prompt}]}]}
+    r = requests.post(url, json=data, timeout=30)
+    r.raise_for_status()
+    return r.json()["candidates"][0]["content"]["parts"][0]["text"]
 
 def init_db():
     conn = sqlite3.connect("andozalar.db")
@@ -228,11 +234,7 @@ QOIDALAR:
 4. Faqat tayyor kopiraytni yoz, tushuntirma berma"""
 
     try:
-        response = gemini_client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt
-        )
-        natija = response.text
+        natija = await asyncio.get_event_loop().run_in_executor(None, gemini_yoz, prompt)
         await yuklanmoqda.delete()
         await message.answer(
             f"✨ <b>Tayyor kopirayt:</b>\n\n{natija}\n\n━━━━━━━━━━━━━━━━━━━━\n🔄 Boshqa variant kerakmi? Yana mavzu yuboring!",
